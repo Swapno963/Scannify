@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
+import { UAParser } from 'ua-parser-js';
+
 
 const Scanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -30,8 +32,15 @@ const Scanner: React.FC = () => {
     readerRef.current = new BrowserMultiFormatReader(hints);
   };
   const getDeviceInfo = (): string => {
-    return navigator.userAgent;
+    const parser = new UAParser();
+    const result = parser.getResult();
+    console.log("result.os", result.os);
+    
+  // You can customize what to return
+  return `${result.os.name} ${result.os.version} - ${result.browser.name} ${result.browser.version}`;
   };
+
+
   const startScanner = async () => {
     if (!videoRef.current || isScanning) return;
 
