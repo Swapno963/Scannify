@@ -18,6 +18,8 @@ const Scanner: React.FC = () => {
   const [result, setResult] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isScanning, setIsScanning] = useState<boolean>(false);
+const [permissionError, setPermissionError] = useState<string>("");
+const [manualInput, setManualInput] = useState<string>("");
 
   // Initialize reader once
   const initReader = () => {
@@ -40,48 +42,58 @@ const Scanner: React.FC = () => {
   return `${result.os.name} ${result.os.version} - ${result.browser.name} ${result.browser.version}`;
   };
 
+const startScanner = async () => {
+  if (!videoRef.current || isScanning) return;
 
-  const startScanner = async () => {
-    if (!videoRef.current || isScanning) return;
+  setError("");
+  setPermissionError("");
+  setResult("");
 
-    setError("");
-    setResult("");
+  try {
+    // First, request camera permission
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
 
-    try {
-      initReader();
-
-      const reader = readerRef.current!;
-      setIsScanning(true);
-
-      controlsRef.current = await reader.decodeFromVideoDevice(
-        undefined, // can change to rear camera later
-        videoRef.current,
-        (res) => {
-          if (res) {
-            const text = res.getText();
-             const scanData: ScanResult = {
-                        value: res.getText(),
-                        format: res.getBarcodeFormat().toString(),
-                        timestamp: new Date().toISOString(),
-                        device: getDeviceInfo(),
-                      };
-            console.log("The scanData is : ", scanData)
-            setResult(text);
-
-            // Stop after successful scan
-            stopScanner();
-          }
-        }
-      );
-    } catch (err: unknown) {
-      setIsScanning(false);
-      if (err instanceof Error) {
-        setError("Camera error: " + err.message);
-      } else {
-        setError("Unknown error");
-      }
+    // If permission granted, assign stream to video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
     }
-  };
+
+    initReader();
+    const reader = readerRef.current!;
+    setIsScanning(true);
+
+    controlsRef.current = await reader.decodeFromVideoDevice(
+      undefined, // default camera
+      videoRef.current,
+      (res) => {
+        if (res) {
+          const scanData: ScanResult = {
+            value: res.getText(),
+            format: res.getBarcodeFormat().toString(),
+            timestamp: new Date().toISOString(),
+            device: getDeviceInfo(),
+          };
+          setResult(JSON.stringify(scanData, null, 2));
+          stopScanner();
+        }
+      }
+    );
+  } catch (err: unknown) {
+    setIsScanning(false);
+
+    // Handle permission denial
+    if (err instanceof DOMException && err.name === "NotAllowedError") {
+      setPermissionError(
+        "Camera access was denied. Please allow camera access to scan codes."
+      );
+    } else if (err instanceof Error) {
+      setError("Camera error: " + err.message);
+    } else {
+      setError("Unknown error");
+    }
+  }
+};
 
   const stopScanner = () => {
     if (controlsRef.current) {
@@ -112,8 +124,40 @@ const Scanner: React.FC = () => {
       <p>
         <strong>Result:</strong> {result || "No result yet"}
       </p>
+      {permissionError && (
+  <div style={{ marginTop: "10px" }}>
+    <p style={{ color: "orange" }}>
+      {permissionError} — or enter the code manually:
+    </p>
+    <input
+      type="text"
+      value={manualInput}
+      onChange={(e) => setManualInput(e.target.value)}
+      placeholder="Enter QR/EAN-13 code"
+      style={{ padding: "5px", width: "250px" }}
+    />
+    <button
+      style={{ marginLeft: "10px" }}
+      onClick={() => {
+        const scanData: ScanResult = {
+          value: manualInput,
+          format: "MANUAL",
+          timestamp: new Date().toISOString(),
+          device: getDeviceInfo(),
+        };
+        setResult(JSON.stringify(scanData, null, 2));
+        setManualInput("");
+      }}
+    >
+      Submit
+    </button>
+  </div>
+)}
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {/* {error && <p style={{ color: "red" }}>{error}</p>} */}
+      {/* {permissionError && (
+  <p style={{ color: "orange" }}>{permissionError}</p>
+)} */}
     </div>
   );
 };
