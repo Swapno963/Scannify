@@ -13,8 +13,10 @@ interface ScanInfo {
   device_info: string;
   created_at: string;
 }
-
-const History: React.FC = () => {
+type HistoryProps = {
+  refreshList: boolean;
+};
+const History: React.FC<HistoryProps> = ({refreshList}) => {
   const [scanData, setScanData] = useState<ScanInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
@@ -87,7 +89,7 @@ const exportPDF = (scanData: ScanInfo[]) => {
     };
 
     fetchHistory();
-  }, []);
+  }, [refreshList]);
 
   if (loading) return <p>Loading scan history...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
