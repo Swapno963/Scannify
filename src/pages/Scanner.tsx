@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import type { IScannerControls } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import { UAParser } from 'ua-parser-js';
 import History from "./History";
-const API_URL = import.meta.env.VITE_API_URL;
+import { saveScanOffline } from "../utility/scanService";
+import { postScannedInfo } from "../utility/api";
+import { syncScans } from "../utility/sync";
+import '../index.css';
 
 
 const Scanner: React.FC = () => {
@@ -25,6 +28,22 @@ const Scanner: React.FC = () => {
   const [isScanning, setIsScanning] = useState<boolean>(false);
 const [permissionError, setPermissionError] = useState<string>("");
 const [manualInput, setManualInput] = useState<string>("");
+const [refreshList, setRefreshList] = useState(false);
+useEffect(() => {
+    function handleOnline() {
+      console.log('Internet restored');
+      // trigger sync
+        syncScans();
+
+    }
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
 
   // Initialize reader once
   const initReader = () => {
@@ -46,39 +65,7 @@ const [manualInput, setManualInput] = useState<string>("");
   // You can customize what to return
   return `${result.os.name} ${result.os.version} - ${result.browser.name} ${result.browser.version}`;
   };
-  const postScannedInfo = async (value:string,barcode_type:string,timestamp:String, device_info:string) => {
-
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch(`${API_URL}/api/scaning_info`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-           "user_id":localStorage.getItem('userId'),
-          "value":value, 
-          "barcode_type":barcode_type,
-          "timestamp":timestamp,
-          "device_info":device_info
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Scanned Info failed to save.");
-      }
-
-      setSuccess("Scanned Info saved successful!");
-
-      return true
-    } catch (err: any) {
-      setError(err.message);
-      return false
-    }
-  };
+ 
 const startScanner = async () => {
   if (!videoRef.current || isScanning) return;
 
@@ -112,11 +99,33 @@ const startScanner = async () => {
             device: getDeviceInfo(),
           };
           setResult(JSON.stringify(scanData, null, 2));
-          const is_saved = await postScannedInfo(res.getText(),
-            res.getBarcodeFormat().toString(),
-           new Date().toISOString(),
-            getDeviceInfo());
-            console.log("is_saved ", is_saved)
+          if (!navigator.onLine) {
+              await saveScanOffline(
+                                    res.getText(),
+                                    res.getBarcodeFormat().toString(),
+                                    new Date().toISOString(),
+                                    getDeviceInfo()
+                                    );
+              alert("Saved offline, will sync later");
+            } else {
+              setError("");
+              setSuccess("");
+              const is_saved = await postScannedInfo(
+                                                    res.getText(),
+                                                    res.getBarcodeFormat().toString(),
+                                                    new Date().toISOString(),
+                                                    getDeviceInfo()
+                                                  );
+                                                    console.log("is_saved ", is_saved)
+              if(is_saved){
+                      setSuccess("Scanned Info saved successful!");
+                      setRefreshList(prev => !prev);
+              }
+              else{
+                      setError("Something went wrong!");
+
+              }
+            }
           stopScanner();
         }
       }
@@ -162,9 +171,9 @@ const startScanner = async () => {
 
       <div style={{ marginTop: "10px" }}>
         {!isScanning ? (
-          <button onClick={startScanner}>Start Scan</button>
+          <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={startScanner}>Start Scan</button>
         ) : (
-          <button onClick={stopScanner}>Stop Scan</button>
+          <button className="bg-red-500 text-white px-4 py-2 rounded" onClick={stopScanner}>Stop Scan</button>
         )}
       </div>
 
@@ -184,6 +193,7 @@ const startScanner = async () => {
       style={{ padding: "5px", width: "250px" }}
     />
     <button
+    className="bg-blue-500 text-white px-4 py-2 rounded"
       style={{ marginLeft: "10px" }}
       onClick={() => {
         const scanData: ScanResult = {
@@ -206,7 +216,7 @@ const startScanner = async () => {
   <p style={{ color: "orange" }}>{permissionError}</p>
 )} */}
 <div className="w-2/5 bg-blue-200 p-4">
-<History></History>
+<History refreshList={refreshList}></History>
 </div>
     </div>
   );
