@@ -7,10 +7,16 @@ import Dashboard from './pages/Dashboard';
 import Registration from './pages/Registration';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
+import Navbar from './Navbar';
 
 const App: React.FC = () => {
+
+
+
   return (
     <Router>
+        <Navbar
+  />
       <Routes>
         {/* Public routes */}
         <Route
