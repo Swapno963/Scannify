@@ -22,14 +22,13 @@ const Scanner: React.FC = () => {
   };
   const [result, setResult] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [postError, setPostError] = useState<string>("");
-    const [success, setSuccess] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
   
   const [isScanning, setIsScanning] = useState<boolean>(false);
-const [permissionError, setPermissionError] = useState<string>("");
-const [manualInput, setManualInput] = useState<string>("");
-const [refreshList, setRefreshList] = useState(false);
-useEffect(() => {
+  const [permissionError, setPermissionError] = useState<string>("");
+  const [manualInput, setManualInput] = useState<string>("");
+  const [refreshList, setRefreshList] = useState(false);
+  useEffect(() => {
     function handleOnline() {
       console.log('Internet restored');
       // trigger sync
@@ -98,7 +97,18 @@ const startScanner = async () => {
             timestamp: new Date().toISOString(),
             device: getDeviceInfo(),
           };
-          setResult(JSON.stringify(scanData, null, 2));
+          const formattedResult = `
+                                Scan Complete!
+
+                                Here's what we found:
+
+                                Code: ${scanData.value}
+
+                                Type: ${scanData.format}
+                                Scanned on: ${new Date(scanData.timestamp).toLocaleString()}
+                                Device: ${scanData.device}
+                                `;
+          setResult(formattedResult);
           if (!navigator.onLine) {
               await saveScanOffline(
                                     res.getText(),
@@ -179,6 +189,7 @@ const startScanner = async () => {
 
       <p>
         <strong>Result:</strong> {result || "No result yet"}
+        <strong>Status :</strong> {success || ""}
       </p>
       {permissionError && (
   <div style={{ marginTop: "10px" }}>
@@ -211,7 +222,7 @@ const startScanner = async () => {
   </div>
 )}
 </div>
-      {/* {error && <p style={{ color: "red" }}>{error}</p>} */}
+      {error && <p style={{ color: "red" }}>{error}</p>}
       {/* {permissionError && (
   <p style={{ color: "orange" }}>{permissionError}</p>
 )} */}
